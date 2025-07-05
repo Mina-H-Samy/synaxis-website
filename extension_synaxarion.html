@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension - Synaxarion</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { padding: 20px; }
+        .entry-item { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .error { color: red; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Extension - Synaxarion</h1>
+        <form id="entryForm">
+            <div class="form-group">
+                <label for="monthSelect">Month</label>
+                <select class="form-control" id="monthSelect">
+                    <option value="">Select month</option>
+                    <option value="tout">Tout</option>
+                    <option value="baba">Baba</option>
+                    <option value="hator">Hator</option>
+                    <option value="kiahk">Kiahk</option>
+                    <option value="toba">Toba</option>
+                    <option value="amshir">Amshir</option>
+                    <option value="baramhat">Baramhat</option>
+                    <option value="baramouda">Baramouda</option>
+                    <option value="bashans">Bashans</option>
+                    <option value="paona">Paona</option>
+                    <option value="epep">Epep</option>
+                    <option value="mesra">Mesra</option>
+                    <option value="nasie">Nasie</option>
+                </select>
+                <small class="error" id="monthError"></small>
+            </div>
+            <div class="form-group">
+                <label for="daySelect">Day</label>
+                <select class="form-control" id="daySelect">
+                    <option value="">Select day</option>
+                    <script>
+                        for (let i = 1; i <= 30; i++) document.write(`<option value="${i}">${i}</option>`);
+                    </script>
+                </select>
+                <small class="error" id="dayError"></small>
+            </div>
+            <div class="form-group">
+                <label for="titleInput">Title</label>
+                <input type="text" class="form-control" id="titleInput" placeholder="Enter title">
+                <small class="error" id="titleError"></small>
+            </div>
+            <div class="form-group">
+                <label for="contentInput">Content</label>
+                <textarea class="form-control" id="contentInput" rows="4" placeholder="Enter content (one line per paragraph)"></textarea>
+                <small class="error" id="contentError"></small>
+            </div>
+            <button type="button" class="btn btn-primary mt-2" onclick="addEntry()">Add Entry</button>
+            <button type="button" class="btn btn-success mt-2" onclick="downloadJson()">Download JSON</button>
+        </form>
+        <div class="mt-4">
+            <h3>Entries</h3>
+            <div id="entriesContainer"></div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let calendarData = { tout: {}, baba: {}, hator: {}, kiahk: {}, toba: {}, amshir: {}, baramhat: {}, baramouda: {}, bashans: {}, paona: {}, epep: {}, mesra: {}, nasie: {} };
+
+        function addEntry() {
+            const month = document.getElementById('monthSelect').value;
+            const day = document.getElementById('daySelect').value;
+            const title = document.getElementById('titleInput').value.trim();
+            const content = document.getElementById('contentInput').value.trim();
+
+            ['month', 'day', 'title', 'content'].forEach(id => document.getElementById(`${id}Error`).textContent = '');
+            if (!month) document.getElementById('monthError').textContent = 'Select a month.';
+            if (!day) document.getElementById('dayError').textContent = 'Select a day.';
+            if (!title) document.getElementById('titleError').textContent = 'Enter a title.';
+            if (!content) document.getElementById('contentError').textContent = 'Enter content.';
+            if (!month || !day || !title || !content) return;
+
+            if (!calendarData[month][day]) calendarData[month][day] = [];
+            calendarData[month][day].push({
+                displayName: title,
+                content: content.split('\n').filter(line => line.trim())
+            });
+
+            document.getElementById('titleInput').value = '';
+            document.getElementById('contentInput').value = '';
+            updateEntries();
+        }
+
+        function updateEntries() {
+            const container = document.getElementById('entriesContainer');
+            container.innerHTML = '';
+            for (const month in calendarData) {
+                for (const day in calendarData[month]) {
+                    if (calendarData[month][day].length) {
+                        const monthDiv = document.createElement('div');
+                        monthDiv.innerHTML = `<h4>${month.charAt(0).toUpperCase() + month.slice(1)} - Day ${day}</h4>`;
+                        calendarData[month][day].forEach((entry, index) => {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.className = 'entry-item';
+                            entryDiv.innerHTML = `
+                                <strong>${entry.displayName}</strong>
+                                <p>${entry.content.join('<br>')}</p>
+                                <button class="btn btn-danger btn-sm" onclick="deleteEntry('${month}', '${day}', ${index})">Delete</button>
+                            `;
+                            monthDiv.appendChild(entryDiv);
+                        });
+                        container.appendChild(monthDiv);
+                    }
+                }
+            }
+        }
+
+        function deleteEntry(month, day, index) {
+            calendarData[month][day].splice(index, 1);
+            if (!calendarData[month][day].length) delete calendarData[month][day];
+            updateEntries();
+        }
+
+        function downloadJson() {
+            const cleanData = {};
+            for (const month in calendarData) {
+                const days = Object.keys(calendarData[month]).reduce((acc, day) => {
+                    if (calendarData[month][day].length) acc[day] = calendarData[month][day];
+                    return acc;
+                }, {});
+                if (Object.keys(days).length) cleanData[month] = days;
+            }
+            const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'coptic_calendar.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
