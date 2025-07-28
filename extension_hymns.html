@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hymn Editor</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { padding: 20px; }
+        .hymn-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        .error { color: red; font-size: 0.9em; }
+        .verse-container, .refrain-verse-container { margin-bottom: 10px; }
+        .refrain-section { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Hymn Editor</h1>
+        <form id="hymnForm">
+            <div class="form-group">
+                <label for="displayNameInput">Hymn Name</label>
+                <input type="text" class="form-control" id="displayNameInput" placeholder="Enter hymn name">
+                <small class="error" id="displayNameError"></small>
+            </div>
+            <div class="form-group">
+                <label for="seasonSelect">Season</label>
+                <select class="form-control" id="seasonSelect">
+                    <option value="all">All</option>
+                    <option value="lent">Lent</option>
+                    <option value="pentecost">Pentecost</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="alternationInput">Alternation (optional)</label>
+                <input type="number" class="form-control" id="alternationInput" placeholder="How many verses are said together e.g., between refrains?">
+            </div>
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="hasRefrain">
+                    <label class="form-check-label" for="hasRefrain">Include Refrain</label>
+                </div>
+            </div>
+            <div class="form-group refrain-section" id="refrainSection">
+                <label>Refrain Verses</label>
+                <div id="refrainVersesContainer">
+                    <div class="refrain-verse-container">
+                        <textarea class="form-control refrain-verse-input" rows="3" placeholder="Enter refrain verse content"></textarea>
+                        <small class="error"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addRefrainVerse()">Add Refrain Verse</button>
+                <small class="error" id="refrainError"></small>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="beginsHymn">
+                    <label class="form-check-label" for="beginsHymn">Begins Hymn</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="endsHymn">
+                    <label class="form-check-label" for="endsHymn">Ends Hymn</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Hymn Verses</label>
+                <div id="versesContainer">
+                    <div class="verse-container">
+                        <textarea class="form-control verse-input" rows="3" placeholder="Enter hymn verse content"></textarea>
+                        <small class="error"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addVerse()">Add Hymn Verse</button>
+                <small class="error" id="versesError"></small>
+            </div>
+            <button type="button" class="btn btn-primary mt-2" onclick="addHymn()">Add Hymn</button>
+            <button type="button" class="btn btn-success mt-2" onclick="downloadJson()">Download File</button>
+        </form>
+        <div class="mt-4">
+            <h3>Hymns</h3>
+            <div id="hymnsContainer"></div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let hymns = [];
+
+        function addVerse() {
+            const versesContainer = document.getElementById('versesContainer');
+            const verseDiv = document.createElement('div');
+            verseDiv.className = 'verse-container';
+            verseDiv.innerHTML = `
+                <textarea class="form-control verse-input" rows="3" placeholder="Enter hymn verse content"></textarea>
+                <small class="error"></small>
+                <button type="button" class="btn btn-danger btn-sm mt-1" onclick="this.parentElement.remove()">Remove Verse</button>
+            `;
+            versesContainer.appendChild(verseDiv);
+        }
+
+        function addRefrainVerse() {
+            const refrainVersesContainer = document.getElementById('refrainVersesContainer');
+            const refrainVerseDiv = document.createElement('div');
+            refrainVerseDiv.className = 'refrain-verse-container';
+            refrainVerseDiv.innerHTML = `
+                <textarea class="form-control refrain-verse-input" rows="3" placeholder="Enter refrain verse content"></textarea>
+                <small class="error"></small>
+                <button type="button" class="btn btn-danger btn-sm mt-1" onclick="this.parentElement.remove()">Remove Refrain Verse</button>
+            `;
+            refrainVersesContainer.appendChild(refrainVerseDiv);
+        }
+
+        function addHymn() {
+            const displayName = document.getElementById('displayNameInput').value.trim();
+            const season = document.getElementById('seasonSelect').value;
+            const alternation = document.getElementById('alternationInput').value;
+            const hasRefrain = document.getElementById('hasRefrain').checked;
+            const beginsHymn = document.getElementById('beginsHymn').checked;
+            const endsHymn = document.getElementById('endsHymn').checked;
+            const verses = Array.from(document.querySelectorAll('.verse-input')).map(textarea => textarea.value.trim());
+            const refrainVerses = Array.from(document.querySelectorAll('.refrain-verse-input')).map(textarea => textarea.value.trim());
+
+            // Reset errors
+            ['displayName', 'refrain', 'verses'].forEach(id => 
+                document.getElementById(`${id}Error`).textContent = ''
+            );
+            document.querySelectorAll('.verse-container .error').forEach(error => error.textContent = '');
+            document.querySelectorAll('.refrain-verse-container .error').forEach(error => error.textContent = '');
+
+            // Validation
+            let isValid = true;
+            if (!displayName) {
+                document.getElementById('displayNameError').textContent = 'Enter a hymn name.';
+                isValid = false;
+            }
+            const nonEmptyVerses = verses.filter(verse => verse);
+            if (nonEmptyVerses.length === 0) {
+                document.getElementById('versesError').textContent = 'At least one non-empty hymn verse is required.';
+                isValid = false;
+            }
+            verses.forEach((verse, index) => {
+                if (verse && verse.split('\n').every(line => !line.trim())) {
+                    document.querySelectorAll('.verse-container .error')[index].textContent = 'Verse cannot be empty.';
+                    isValid = false;
+                }
+            });
+            if (hasRefrain) {
+                const nonEmptyRefrainVerses = refrainVerses.filter(verse => verse);
+                if (nonEmptyRefrainVerses.length === 0) {
+                    document.getElementById('refrainError').textContent = 'At least one non-empty refrain verse is required.';
+                    isValid = false;
+                }
+                refrainVerses.forEach((verse, index) => {
+                    if (verse && verse.split('\n').every(line => !line.trim())) {
+                        document.querySelectorAll('.refrain-verse-container .error')[index].textContent = 'Refrain verse cannot be empty.';
+                        isValid = false;
+                    }
+                });
+            }
+            if (!isValid) return;
+
+            // Create hymn object
+            const hymn = {
+                displayName,
+                season: season === 'all' ? null : season,
+                alternation: alternation ? parseInt(alternation) : null,
+                content: nonEmptyVerses.map(verse => 
+                    verse.split('\n').filter(line => line.trim()).join('\n')
+                )
+            };
+
+            if (hasRefrain) {
+                hymn.refrain = {
+                    content: refrainVerses.filter(verse => verse).map(verse => 
+                        verse.split('\n').filter(line => line.trim()).join('\n')
+                    ),
+                    beginsHymn,
+                    endsHymn
+                };
+            }
+
+            hymns.push(hymn);
+            document.getElementById('hymnForm').reset();
+            document.getElementById('versesContainer').innerHTML = `
+                <div class="verse-container">
+                    <textarea class="form-control verse-input" rows="3" placeholder="Enter hymn verse content"></textarea>
+                    <small class="error"></small>
+                </div>
+            `;
+            document.getElementById('refrainVersesContainer').innerHTML = `
+                <div class="refrain-verse-container">
+                    <textarea class="form-control refrain-verse-input" rows="3" placeholder="Enter refrain verse content"></textarea>
+                    <small class="error"></small>
+                </div>
+            `;
+            document.getElementById('refrainSection').style.display = 'none';
+            updateHymns();
+        }
+
+        function updateHymns() {
+            const container = document.getElementById('hymnsContainer');
+            container.innerHTML = '';
+            hymns.forEach((hymn, index) => {
+                const hymnDiv = document.createElement('div');
+                hymnDiv.className = 'hymn-item';
+                hymnDiv.innerHTML = `
+                    <h5>${hymn.displayName}</h5>
+                    <p><strong>Season:</strong> ${hymn.season || 'All'}</p>
+                    <p><strong>Alternation:</strong> ${hymn.alternation || 'None'}</p>
+                    ${hymn.refrain ? `
+                        <p><strong>Refrain:</strong><br>${hymn.refrain.content.join('<br><br>')}</p>
+                        <p><strong>Refrain Position:</strong> 
+                            ${hymn.refrain.beginsHymn ? 'Begins Hymn' : ''} 
+                            ${hymn.refrain.beginsHymn && hymn.refrain.endsHymn ? 'and ' : ''} 
+                            ${hymn.refrain.endsHymn ? 'Ends Hymn' : ''}
+                        </p>
+                    ` : ''}
+                    <p><strong>Hymn Verses:</strong><br>${hymn.content.join('<br><br>')}</p>
+                    <button class="btn btn-danger btn-sm" onclick="deleteHymn(${index})">Delete</button>
+                `;
+                container.appendChild(hymnDiv);
+            });
+        }
+
+        function deleteHymn(index) {
+            hymns.splice(index, 1);
+            updateHymns();
+        }
+
+        function downloadJson() {
+            const data = { commonHymns: hymns };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'common_hymns.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('hasRefrain').addEventListener('change', function() {
+            document.getElementById('refrainSection').style.display = this.checked ? 'block' : 'none';
+        });
+    </script>
+</body>
+</html>
