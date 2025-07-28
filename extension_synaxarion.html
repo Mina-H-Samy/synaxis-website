@@ -57,6 +57,8 @@
             </div>
             <button type="button" class="btn btn-primary mt-2" onclick="addEntry()">Add Entry</button>
             <button type="button" class="btn btn-success mt-2" onclick="downloadJson()">Download File</button>
+            <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="document.getElementById('fileInput').click()">Upload File</button>
+            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="uploadJson()">
         </form>
         <div class="mt-4">
             <h3>Entries</h3>
@@ -140,6 +142,68 @@
             a.download = 'coptic_calendar.json';
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        function uploadJson() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    const validMonths = ['tout', 'baba', 'hator', 'kiahk', 'toba', 'amshir', 'baramhat', 'baramouda', 'bashans', 'paona', 'epep', 'mesra', 'nasie'];
+
+                    // Initialize calendarData
+                    calendarData = { tout: {}, baba: {}, hator: {}, kiahk: {}, toba: {}, amshir: {}, baramhat: {}, baramouda: {}, bashans: {}, paona: {}, epep: {}, mesra: {}, nasie: {} };
+
+                    // Validate JSON structure
+                    let isValid = true;
+                    for (const month in data) {
+                        if (!validMonths.includes(month)) {
+                            isValid = false;
+                            break;
+                        }
+                        for (const day in data[month]) {
+                            if (!/^\d+$/.test(day) || parseInt(day) < 1 || parseInt(day) > 30) {
+                                isValid = false;
+                                break;
+                            }
+                            if (!Array.isArray(data[month][day])) {
+                                isValid = false;
+                                break;
+                            }
+                            for (const entry of data[month][day]) {
+                                if (!entry.displayName || typeof entry.displayName !== 'string' ||
+                                    !Array.isArray(entry.content) || entry.content.length === 0 ||
+                                    !entry.content.every(line => typeof line === 'string')) {
+                                    isValid = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!isValid) {
+                        alert('Invalid JSON format: Ensure the file matches the expected structure with valid months, days, and entries.');
+                        return;
+                    }
+
+                    // Load valid data into calendarData
+                    for (const month of validMonths) {
+                        if (data[month]) {
+                            calendarData[month] = data[month];
+                        }
+                    }
+
+                    updateEntries();
+                    fileInput.value = ''; // Reset file input
+                } catch (e) {
+                    alert('Error reading JSON file: ' + e.message);
+                }
+            };
+            reader.readAsText(file);
         }
     </script>
 </body>
