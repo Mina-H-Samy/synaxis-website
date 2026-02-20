@@ -133,7 +133,7 @@
                     if (calendarData[month][day].length) acc[day] = calendarData[month][day];
                     return acc;
                 }, {});
-                if (Object.keys(days).length) cleanData[month] = days;
+                cleanData[month] = days;
             }
             const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
